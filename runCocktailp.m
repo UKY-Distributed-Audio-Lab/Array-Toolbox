@@ -68,7 +68,7 @@ reflecc = [.75, .75, .75, .75, .5, .5]; %  Reflection coefficients of walls, cei
 % array recording will be save to a multichannel wavefile and source and
 % mic postion separate text files. You must enable the loading of this file 
 % inpartyanalysis to use this feature.
-saveVarsMat = 0;  % Set to 1 to save all output variable in mat file
+saveVarsMat = 1;  % Set to 1 to save all output variable in mat file
 
 % Play flag. Set to 1 to play back 3 (or all if N less than 3) channels of sigout at
 % end of script
