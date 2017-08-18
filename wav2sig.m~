@@ -1,6 +1,3 @@
-%TODO Test 
-
-
 function [sig,fs] = wav2sig(fnames, varargin)
 % This function reads in wave files and stores all the information into a 
 % single matrix with equal number of rows, with each column representing
@@ -114,11 +111,8 @@ for fno=1:length(fnames)
         y{fno} = y{fno}(:,1);
     end
     
-    %if a vector of weights to scale the relative RMS values is present,
-    %normalize each signal, then multiply it by the scalar weight.
     if length(varargin) == 3
-        y{fno} = y{fno}/(max(abs(y{fno})));
-        y{fno} = y{fno} * weights{fno};
+        y{fno} = y{fno}/(max(abs(y{fno
     end
 end
 
