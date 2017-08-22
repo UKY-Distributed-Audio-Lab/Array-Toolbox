@@ -1,4 +1,15 @@
-%TODO Test 
+%TODO Test
+%"I would like a function (can adapt wave2sig.m) that will also ask for a
+%vector  of weights to scale the relative RMS values of each of the files.
+%So you would normalize each file as it is read in and then multiply it by
+%the weight given in the input scaling vector. The output matrix should be
+%relatively scaled wave files in each column.  If you then do std() along
+%each column (std is effectively the same as RMS) you should get numbers
+%proportional to the vector of weights.  This way in the simulation we can
+%also adjust the relative strengths of the signals for testing (i.e. make
+%the the signal weak/strong enough to find the limits of
+%detectability)." -Dr. Donohue
+%^this is for reference and not inspiration
 
 
 function [sig,fs] = wav2sig(fnames, varargin)
@@ -34,6 +45,7 @@ function [sig,fs] = wav2sig(fnames, varargin)
 %          files
 %
 %   Written by Satoru Tagawa (staga2@uky.edu) 6/12/08
+%   Edited by Grant Cox 8/22/17
 
 
 % Parameter check ********************************************************
@@ -97,28 +109,53 @@ if nargin > 1
         end
         
         %vector of weights to scale rms vals
-        weights = varargin{4};
+        weights = varargin{3};
     end
 end
 %*************************************************************************
 
 
 % Read in each wave files and place in cell array "y"
+% for fno=1:length(fnames)
+%     Read the wave file, determine its sample frequency
+%     [y{fno},nfs(fno)]=audioread(fnames{fno});
+%     disp(['loop: ',num2str(fno),' pre-processed std: ',num2str(std(y{fno}))])
+%     disp([num2str(max(abs(y{fno})))])
+%     
+%     If more than one channel present, eliminate all but the first channel
+%     [nR,nChanOrig] = size(y{fno});
+%     if nChanOrig ~= 1
+%         y{fno} = y{fno}(:,1);
+%     end
+%     
+%     if a vector of weights to scale the relative RMS values is present,
+%     normalize each signal, then multiply it by the scalar weight.
+%     if length(varargin) == 3
+%         y{fno} = normc(y{fno});     %normalize the column
+%         y{fno} = y{fno} * weights{fno};     %multiply by the weight
+%         disp(['loop: ',num2str(fno),' post-processed std: ',num2str(std(y{fno}))])
+%     end
+% end
+
+%TODO********************************************************************************************************************
+
 for fno=1:length(fnames)
-    % Read the wave file, determine its sample frequency
     [y{fno},nfs(fno)]=audioread(fnames{fno});
-    
-    % If more than one channel present, eliminate all but the first channel
+    %If more than one channel present, eliminate all but the first channel
     [nR,nChanOrig] = size(y{fno});
     if nChanOrig ~= 1
         y{fno} = y{fno}(:,1);
     end
-    
-    %if a vector of weights to scale the relative RMS values is present,
-    %normalize each signal, then multiply it by the scalar weight.
-    if length(varargin) == 3
-        y{fno} = y{fno}/(max(abs(y{fno})));
-        y{fno} = y{fno} * weights{fno};
+end
+
+% if a vector of weights to scale the relative RMS values is present,
+% normalize each signal, then multiply it by the scalar weight.
+if length(varargin) == 3
+    y_std = zeros(1,length(fnames));
+    for k=1:length(fnames)
+        y_std(1,k) = std(y(:,k))
+        y(:,k) = y(:,k) / y_std(k);
+        y(:,k) = y(:,k) * weights{k};
     end
 end
 
@@ -174,4 +211,4 @@ end
 
 % Write out to a wav file
 % For debugging purpose
-% wavwrite(sig,fs,'out.wav');
+audiowrite('wav2sigout.wav',sig,fs);
