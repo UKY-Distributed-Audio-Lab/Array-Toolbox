@@ -153,9 +153,9 @@ end
 if length(varargin) == 3
     y_std = zeros(1,length(fnames));
     for k=1:length(fnames)
-        y_std(1,k) = std(y(:,k))
-        y(:,k) = y(:,k) / y_std(k);
-        y(:,k) = y(:,k) * weights{k};
+        y_std(1,k) = std(y{k});
+        y{k} = y{k} / y_std(k);
+        y{k} = y{k} * weights{k};
     end
 end
 
