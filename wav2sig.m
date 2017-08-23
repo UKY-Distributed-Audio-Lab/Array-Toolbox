@@ -11,8 +11,15 @@
 %detectability)." -Dr. Donohue
 %^this is for reference and not inspiration
 
+%added sig = wav2sig(fnames,weights) functionality but other errors have
+%come up. need logic to
+%continue.---------------------------------------------------------------------------------------=--
 
 function [sig,fs] = wav2sig(fnames, varargin)
+usage_instr = ['sig = wav2sig(fnames)\nsig = wav2sig(fnames,fs)\n'...
+                 'sig = wav2sig(fnames,weights)\nsig = wav2sig(fnames,tInt)\n'...
+                 'sig = wav2sig(fnames,fs,weights)\nsig = wav2sig(fnames,fs,tInt)\n'...
+                 'sig = wav2sig(fnames,fs,tInt,weights)\n' ];
 % This function reads in wave files and stores all the information into a 
 % single matrix with equal number of rows, with each column representing
 % the different wave files.  
@@ -20,6 +27,7 @@ function [sig,fs] = wav2sig(fnames, varargin)
 %   sig = wav2sig(fnames)
 %   sig = wav2sig(fnames,fs)
 %   sig = wav2sig(fnames,tInt)
+%   sig = wav2sig(fnames,weights)
 %   sig = wav2sig(fnames,fs,tInt)
 %   sig = wav2sig(fnames,fs,tInt,weights)
 %
@@ -60,17 +68,19 @@ end
 % If more than one parameter, check to see what the parameters are
 if nargin > 1
     [numR1,numC1] = size(varargin{1});
-    if numR1 ~= 1  % Argument cannot have more than 1 row
-            error('2nd parameter must have the dimension 1x1 or 1x2');
-    end
+%     if numR1 ~= 1  % Argument cannot have more than 1 row
+%             error('2nd parameter must have the dimension 1x1 or 1x2');
+%     end
 
     if length(varargin) == 1 %---------------------------------2 parameters
-        if numC1 == 1
+        if isvector(varargin)
+            weights = varargin{:,:};
+        elseif numC1 == 1
             fs = varargin{1};
         elseif numC1 == 2
             tInt = varargin{1};
         else
-            error('2nd parameter must have the dimension 1x1 or 1x2');
+            error('tInt parameter must have the dimension 1x1 or 1x2');
         end
     elseif length(varargin) == 2 %-----------------------------3 parameters
         if numC1 == 1
