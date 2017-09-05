@@ -16,10 +16,10 @@
 %continue.---------------------------------------------------------------------------------------=--
 
 function [sig,fs] = wav2sig(fnames, varargin)
-usage_instr = ['sig = wav2sig(fnames)\nsig = wav2sig(fnames,fs)\n'...
-                 'sig = wav2sig(fnames,weights)\nsig = wav2sig(fnames,tInt)\n'...
-                 'sig = wav2sig(fnames,fs,weights)\nsig = wav2sig(fnames,fs,tInt)\n'...
-                 'sig = wav2sig(fnames,fs,tInt,weights)\n' ];
+% usage_instr = ['sig = wav2sig(fnames)\nsig = wav2sig(fnames,fs)\n'...
+%                  'sig = wav2sig(fnames,weights)\nsig = wav2sig(fnames,tInt)\n'...
+%                  'sig = wav2sig(fnames,fs,weights)\nsig = wav2sig(fnames,fs,tInt)\n'...
+%                  'sig = wav2sig(fnames,fs,tInt,weights)\n' ];
 % This function reads in wave files and stores all the information into a 
 % single matrix with equal number of rows, with each column representing
 % the different wave files.  
@@ -29,6 +29,7 @@ usage_instr = ['sig = wav2sig(fnames)\nsig = wav2sig(fnames,fs)\n'...
 %   sig = wav2sig(fnames,tInt)
 %   sig = wav2sig(fnames,weights)
 %   sig = wav2sig(fnames,fs,tInt)
+%   sig = wav2sig(fnames,fs,weights)
 %   sig = wav2sig(fnames,fs,tInt,weights)
 %
 %   Inputs:
@@ -43,6 +44,8 @@ usage_instr = ['sig = wav2sig(fnames)\nsig = wav2sig(fnames,fs)\n'...
 %       a) fs - resample the wave file to this frequency
 %       b) tInt - 1x2 vector to specify time interval (in seconds) to 
 %          trim down to
+%       c) weights - scaling vector of weights multiplied to each input
+%          file after it is normailzed. [ w1; w2;...;wn ]
 %
 %   Output:
 %   sig - matrix with the following properties:
@@ -73,8 +76,9 @@ if nargin > 1
 %     end
 
     if length(varargin) == 1 %---------------------------------2 parameters
-        if isvector(varargin)
-            weights = varargin{:,:};
+%         if isvector(varargin)
+        if [numR1 , numC1] == size(fnames)
+            weights = varargin{1};
         elseif numC1 == 1
             fs = varargin{1};
         elseif numC1 == 2
@@ -90,6 +94,13 @@ if nargin > 1
         end
         
         [numR2,numC2] = size(varargin{2});
+        if [numR2 , numC2] == size(fnames)
+            weights = varargin;
+        end
+        
+        %TODO FIX THE REST OF THE INPUTS FROM HERE. USE SIMILAR METHOD TO
+        %PREVIOUS LINES
+        
         if numR2 ~= 1
             error('tInt must have the dimension 1x1 or 1x2');
         end
