@@ -56,7 +56,7 @@
 function [phi, psi] = ccafbounds(m, fs, c, p, order)
 
 %% Argument Error Checking
-error(nargchk(5, 5, nargin));
+narginchk(5,5);
 if ~isreal(m) || ~all(all(isfinite(m))) || size(m,1) ~= 3
     error('m must be a real matrix with 3 rows')
 elseif ~isscalar(fs) || ~isreal(fs) || ~isfinite(fs) || ...

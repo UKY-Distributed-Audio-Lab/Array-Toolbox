@@ -66,7 +66,7 @@ function [y, wSave] = mclms(z, b, mu, order, beta, zInit, wInit, ...
     wForce, mcAdapt, K)   
 
 %% Argument Error Checking
-error(nargchk(10, 10, nargin));
+narginchk(10,10);
 if ~isreal(z) || length(size(z)) ~= 2 || ~all(all(isfinite(z)))
     error('z must be a real matrix');
 elseif ~isvector(b) || ~isreal(b) || ~all(isfinite(b))
