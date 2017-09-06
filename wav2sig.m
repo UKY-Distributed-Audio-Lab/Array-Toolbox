@@ -96,20 +96,19 @@ if nargin > 1
         [numR2,numC2] = size(varargin{2});
         if [numR2 , numC2] == size(fnames)
             weights = varargin;
+        elseif numC2 == 2
+            tInt = varargin{2};                 
+        else
+            error('Check argument specifications.');
         end
         
         %TODO FIX THE REST OF THE INPUTS FROM HERE. USE SIMILAR METHOD TO
         %PREVIOUS LINES
         
-        if numR2 ~= 1
-            error('tInt must have the dimension 1x1 or 1x2');
-        end
+%         if numR2 ~= 1
+%             error('tInt must have the dimension 1x1 or 1x2');
+%         end
         
-        if numC2 == 2
-            tInt = varargin{2};                 
-        else
-            error('tInt must have the dimension 1x2');
-        end
     else         %---------------------------------------------4 parameters
         if numC1 == 1
             fs = varargin{1};
@@ -135,6 +134,10 @@ if nargin > 1
 end
 %*************************************************************************
 
+%check for fs
+if exist('fs') == 0
+    fs = 44100;
+end
 
 % Read in each wave files and place in cell array "y"
 % for fno=1:length(fnames)
@@ -158,8 +161,6 @@ end
 %     end
 % end
 
-%TODO********************************************************************************************************************
-
 for fno=1:length(fnames)
     [y{fno},nfs(fno)]=audioread(fnames{fno});
     %If more than one channel present, eliminate all but the first channel
@@ -171,12 +172,14 @@ end
 
 % if a vector of weights to scale the relative RMS values is present,
 % normalize each signal, then multiply it by the scalar weight.
-if length(varargin) == 3
-    y_std = zeros(1,length(fnames));
-    for k=1:length(fnames)
-        y_std(1,k) = std(y{k});
-        y{k} = y{k} / y_std(k);
-        y{k} = y{k} * weights{k};
+if nargin > 1
+    if [numR1 , numC1] == size(fnames)
+        y_std = zeros(1,length(fnames));
+        for k=1:length(fnames)
+            y_std(1,k) = std(y{k});
+            y{k} = y{k} / y_std(k);
+            y{k} = y{k} * weights{k};
+        end
     end
 end
 
@@ -207,7 +210,9 @@ for fno=1:length(fnames)
 end
 
 % if tInt is passed in, trim down or zero pad 'sig'
-if nargin==3 || nargin==2 && numC1 == 2
+% if nargin==3 || nargin==2 && numC1 == 2
+if exist('tInt') == 1
+    %TODO: CAUSES ERROR WHEN ATTEMPTING TRIMMING OF TIME INTERVAL
     if tInt(1) > tInt(2)
         error('2nd column in tInt must be greater than the 1st column');
     elseif tInt(1) < 0 || tInt(2) < 0
