@@ -1,19 +1,4 @@
-%TODO Test
-%"I would like a function (can adapt wave2sig.m) that will also ask for a
-%vector  of weights to scale the relative RMS values of each of the files.
-%So you would normalize each file as it is read in and then multiply it by
-%the weight given in the input scaling vector. The output matrix should be
-%relatively scaled wave files in each column.  If you then do std() along
-%each column (std is effectively the same as RMS) you should get numbers
-%proportional to the vector of weights.  This way in the simulation we can
-%also adjust the relative strengths of the signals for testing (i.e. make
-%the the signal weak/strong enough to find the limits of
-%detectability)." -Dr. Donohue
-%^this is for reference and not inspiration
-
-%added sig = wav2sig(fnames,weights) functionality but other errors have
-%come up. need logic to
-%continue.---------------------------------------------------------------------------------------=--
+%edited by Grant Cox, September 6, 2017
 
 function [sig,fs] = wav2sig(fnames, varargin)
 % usage_instr = ['sig = wav2sig(fnames)\nsig = wav2sig(fnames,fs)\n'...
@@ -42,10 +27,10 @@ function [sig,fs] = wav2sig(fnames, varargin)
 %        channels are present, only the first channel will be used.
 %   2) varargin (optional):
 %       a) fs - resample the wave file to this frequency
-%       b) tInt - 1x2 vector to specify time interval (in seconds) to 
-%          trim down to
+%       b) tInt - 1x2 matrix to specify time interval (in seconds) to 
+%          trim down to. ex: [0 5] for 0->5 seconds
 %       c) weights - scaling vector of weights multiplied to each input
-%          file after it is normailzed. [ w1; w2;...;wn ]
+%          file after it is normailzed. { w1; w2;...;wn } n = size(fnames)
 %
 %   Output:
 %   sig - matrix with the following properties:
@@ -68,6 +53,9 @@ if nargin > 4
     error('There can only be a maximum of 4 parameters');
 end
 
+
+tInt_flag = false;
+weight_flag = false;
 % If more than one parameter, check to see what the parameters are
 if nargin > 1
     [numR1,numC1] = size(varargin{1});
@@ -79,10 +67,12 @@ if nargin > 1
 %         if isvector(varargin)
         if [numR1 , numC1] == size(fnames)
             weights = varargin{1};
+            weight_flag = true;
         elseif numC1 == 1
             fs = varargin{1};
         elseif numC1 == 2
             tInt = varargin{1};
+            tInt_flag = true;
         else
             error('tInt parameter must have the dimension 1x1 or 1x2');
         end
@@ -95,9 +85,11 @@ if nargin > 1
         
         [numR2,numC2] = size(varargin{2});
         if [numR2 , numC2] == size(fnames)
-            weights = varargin;
+            weights = varargin{2};
+            weight_flag = true;
         elseif numC2 == 2
-            tInt = varargin{2};                 
+            tInt = varargin{2};
+            tInt_flag = true;
         else
             error('Check argument specifications.');
         end
@@ -123,43 +115,18 @@ if nargin > 1
         end
         
         if numC2 == 2
-            tInt = varargin{2};               
+            tInt = varargin{2};
+            tInt_flag = true;
         else
             error('tInt must have the dimension 1x2');
         end
         
         %vector of weights to scale rms vals
         weights = varargin{3};
+        weight_flag = true;
     end
 end
 %*************************************************************************
-
-%check for fs
-if exist('fs') == 0
-    fs = 44100;
-end
-
-% Read in each wave files and place in cell array "y"
-% for fno=1:length(fnames)
-%     Read the wave file, determine its sample frequency
-%     [y{fno},nfs(fno)]=audioread(fnames{fno});
-%     disp(['loop: ',num2str(fno),' pre-processed std: ',num2str(std(y{fno}))])
-%     disp([num2str(max(abs(y{fno})))])
-%     
-%     If more than one channel present, eliminate all but the first channel
-%     [nR,nChanOrig] = size(y{fno});
-%     if nChanOrig ~= 1
-%         y{fno} = y{fno}(:,1);
-%     end
-%     
-%     if a vector of weights to scale the relative RMS values is present,
-%     normalize each signal, then multiply it by the scalar weight.
-%     if length(varargin) == 3
-%         y{fno} = normc(y{fno});     %normalize the column
-%         y{fno} = y{fno} * weights{fno};     %multiply by the weight
-%         disp(['loop: ',num2str(fno),' post-processed std: ',num2str(std(y{fno}))])
-%     end
-% end
 
 for fno=1:length(fnames)
     [y{fno},nfs(fno)]=audioread(fnames{fno});
@@ -170,21 +137,19 @@ for fno=1:length(fnames)
     end
 end
 
-% if a vector of weights to scale the relative RMS values is present,
-% normalize each signal, then multiply it by the scalar weight.
-if nargin > 1
-    if [numR1 , numC1] == size(fnames)
-        y_std = zeros(1,length(fnames));
-        for k=1:length(fnames)
-            y_std(1,k) = std(y{k});
-            y{k} = y{k} / y_std(k);
-            y{k} = y{k} * weights{k};
-        end
-    end
-end
+% % if a vector of weights to scale the relative RMS values is present,
+% % normalize each signal, then multiply it by the scalar weight.
+% if weight_flag
+%     y_std = zeros(1,length(fnames));
+%     for k=1:length(fnames)
+%         y_std(1,k) = std(y{k});
+%         y{k} = y{k} / y_std(k);
+%         y{k} = y{k} * weights{k};
+%     end
+% end
 
 % If fs is not given, down sample to the signal with the lowest fs
-if nargin == 1 || nargin == 2 && numC1 == 2
+if exist('fs') == 0
     fs = min(nfs);
 end    
 
@@ -210,9 +175,7 @@ for fno=1:length(fnames)
 end
 
 % if tInt is passed in, trim down or zero pad 'sig'
-% if nargin==3 || nargin==2 && numC1 == 2
-if exist('tInt') == 1
-    %TODO: CAUSES ERROR WHEN ATTEMPTING TRIMMING OF TIME INTERVAL
+if tInt_flag
     if tInt(1) > tInt(2)
         error('2nd column in tInt must be greater than the 1st column');
     elseif tInt(1) < 0 || tInt(2) < 0
@@ -234,6 +197,23 @@ if exist('tInt') == 1
     
     sig = sig(begin_index:end_index,:);
 end
+
+% if a vector of weights to scale the relative RMS values is present,
+% normalize each signal, then multiply it by the scalar weight.
+if weight_flag
+    sig_std = zeros(1,length(fnames));
+    for k=1:length(fnames)
+        sig_std(k) = std(sig(:,k));
+        sig(:,k) = sig(:,k) / sig_std(k);
+        sig(:,k) = sig(:,k) * weights{k};
+    end
+end
+
+% Scale to fit in wavefile and limit clipping
+normme = mean(std(sig));
+sig = sig / (10*normme);
+%9-6-17, Grant Cox: this still clips very often. Perhaps we should find the
+%max and divide by it? Or put in some logic to decide which method to use.
 
 % Write out to a wav file
 % For debugging purpose
