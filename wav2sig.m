@@ -1,5 +1,3 @@
-%edited by Grant Cox, September 6, 2017
-
 function [sig,fs] = wav2sig(fnames, varargin)
 % usage_instr = ['sig = wav2sig(fnames)\nsig = wav2sig(fnames,fs)\n'...
 %                  'sig = wav2sig(fnames,weights)\nsig = wav2sig(fnames,tInt)\n'...
@@ -54,6 +52,9 @@ if nargin > 4
 end
 
 
+
+
+%***************************Parameter Checking*****************************
 tInt_flag = false;
 weight_flag = false;
 % If more than one parameter, check to see what the parameters are
@@ -63,45 +64,48 @@ if nargin > 1
 %             error('2nd parameter must have the dimension 1x1 or 1x2');
 %     end
 
-    if length(varargin) == 1 %---------------------------------2 parameters
-%         if isvector(varargin)
-        if [numR1 , numC1] == size(fnames)
+    %   2 Parameters
+    %   sig = wav2sig(fnames,fs)
+    %   sig = wav2sig(fnames,tInt)
+    %   sig = wav2sig(fnames,weights)
+    if length(varargin) == 1
+        if iscell(varargin{1})
             weights = varargin{1};
             weight_flag = true;
         elseif numC1 == 1
             fs = varargin{1};
-        elseif numC1 == 2
+        elseif ismatrix(varargin{1})
             tInt = varargin{1};
             tInt_flag = true;
         else
             error('tInt parameter must have the dimension 1x1 or 1x2');
         end
-    elseif length(varargin) == 2 %-----------------------------3 parameters
+        
+        
+    %   3 parameters
+    %   sig = wav2sig(fnames,fs,tInt)
+    %   sig = wav2sig(fnames,fs,weights)
+    elseif length(varargin) == 2
         if numC1 == 1
             fs = varargin{1};
         else
             error('fs must have the dimension 1x1');
         end
         
-        [numR2,numC2] = size(varargin{2});
-        if [numR2 , numC2] == size(fnames)
+        if iscell(varargin{2})
             weights = varargin{2};
             weight_flag = true;
-        elseif numC2 == 2
+        elseif ismatrix(varargin{2})
             tInt = varargin{2};
             tInt_flag = true;
         else
             error('Check argument specifications.');
         end
         
-        %TODO FIX THE REST OF THE INPUTS FROM HERE. USE SIMILAR METHOD TO
-        %PREVIOUS LINES
         
-%         if numR2 ~= 1
-%             error('tInt must have the dimension 1x1 or 1x2');
-%         end
-        
-    else         %---------------------------------------------4 parameters
+    %   4 parameters
+    %   sig = wav2sig(fnames,fs,tInt,weights)   
+    else
         if numC1 == 1
             fs = varargin{1};
         else
@@ -114,7 +118,7 @@ if nargin > 1
             error('tInt must have the dimension 1x1 or 1x2');
         end
         
-        if numC2 == 2
+        if ismatrix(varargin{2})
             tInt = varargin{2};
             tInt_flag = true;
         else
@@ -122,12 +126,16 @@ if nargin > 1
         end
         
         %vector of weights to scale rms vals
-        weights = varargin{3};
-        weight_flag = true;
+        if iscell(varargin{3})
+            weights = varargin{3};
+            weight_flag = true;
+        end
     end
 end
-%*************************************************************************
 
+
+
+%*******************************Signal Checks******************************
 for fno=1:length(fnames)
     [y{fno},nfs(fno)]=audioread(fnames{fno});
     %If more than one channel present, eliminate all but the first channel
@@ -137,23 +145,14 @@ for fno=1:length(fnames)
     end
 end
 
-% % if a vector of weights to scale the relative RMS values is present,
-% % normalize each signal, then multiply it by the scalar weight.
-% if weight_flag
-%     y_std = zeros(1,length(fnames));
-%     for k=1:length(fnames)
-%         y_std(1,k) = std(y{k});
-%         y{k} = y{k} / y_std(k);
-%         y{k} = y{k} * weights{k};
-%     end
-% end
 
+%********************************CheckFS***********************************
 % If fs is not given, down sample to the signal with the lowest fs
 if exist('fs') == 0
     fs = min(nfs);
 end    
 
-% Resample the wave files
+%********************************Resample**********************************
 for fno=1:length(fnames)   
     yf{fno} = resample(y{fno},fs,nfs(fno));
     
@@ -161,6 +160,8 @@ for fno=1:length(fnames)
     siglen(fno) = length(yf{fno});
 end
 
+
+%*******************************Check Sig Length***************************
 maxSigLen = max(siglen);
 % Conform the number of rows to that of the longest signal
 for fno=1:length(fnames)
@@ -174,6 +175,8 @@ for fno=1:length(fnames)
     end
 end
 
+
+%*****************************Trim time interval***************************
 % if tInt is passed in, trim down or zero pad 'sig'
 if tInt_flag
     if tInt(1) > tInt(2)
@@ -198,6 +201,20 @@ if tInt_flag
     sig = sig(begin_index:end_index,:);
 end
 
+
+
+
+%*******************************Normalize**********************************
+%9-11-2017 GC: I put the normalization here before the weights were
+%applied. The effect of the weights was being minimalized by the next two
+%lines whenever they were after the weight scaling in the code.
+normme = mean(std(sig));
+sig = sig / (10*normme);
+
+
+
+
+%******************************Scalar Weights******************************
 % if a vector of weights to scale the relative RMS values is present,
 % normalize each signal, then multiply it by the scalar weight.
 if weight_flag
@@ -210,10 +227,16 @@ if weight_flag
 end
 
 % Scale to fit in wavefile and limit clipping
-normme = mean(std(sig));
-sig = sig / (10*normme);
+% normme = mean(std(sig));
+% sig = sig / (10*normme);
 %9-6-17, Grant Cox: this still clips very often. Perhaps we should find the
 %max and divide by it? Or put in some logic to decide which method to use.
+
+%9-11-17 GC: clipping varies very much with the different combinations of
+%files. Dividing sig by 10 * normme seems to cover most cases, but it also
+%looks like it reduces the effect of the weight vector on the signal. i.e.
+%changing the weights doesn't do a lot to the amplitude of the outputted
+%file
 
 % Write out to a wav file
 % For debugging purpose
