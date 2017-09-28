@@ -36,7 +36,9 @@ env_thresh=0.15; % threshold used to remove silence intervals in the signals
 % noise respectively
 wavfiles={'man1.wav', 'woman1.wav'};
 % Readin wavefiles and truncates it to be of equal length
-[sigin, fs] = wav2sig(wavfiles,[0 10]);
+s = struct('tInt',[0 10]);
+[sigin, fs] = wav2sig(wavfiles,s);
+clear s;
 [b,a] = butter(5,hpc/(fs/2),'high'); % designing 5th order high pass butterworth filter
 % Filter the input signals through a high pass filter to remove the room
 % noise

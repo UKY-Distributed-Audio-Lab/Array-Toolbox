@@ -1,20 +1,7 @@
-function [sig,fs] = wav2sig(fnames, varargin)
-% usage_instr = ['sig = wav2sig(fnames)\nsig = wav2sig(fnames,fs)\n'...
-%                  'sig = wav2sig(fnames,weights)\nsig = wav2sig(fnames,tInt)\n'...
-%                  'sig = wav2sig(fnames,fs,weights)\nsig = wav2sig(fnames,fs,tInt)\n'...
-%                  'sig = wav2sig(fnames,fs,tInt,weights)\n' ];
+function [sig,fs] = wav2sig(fnames,varargin)
 % This function reads in wave files and stores all the information into a 
 % single matrix with equal number of rows, with each column representing
-% the different wave files.  
-% 
-%   sig = wav2sig(fnames)
-%   sig = wav2sig(fnames,fs)
-%   sig = wav2sig(fnames,tInt)
-%   sig = wav2sig(fnames,weights)
-%   sig = wav2sig(fnames,fs,tInt)
-%   sig = wav2sig(fnames,fs,weights)
-%   sig = wav2sig(fnames,fs,tInt,weights)
-%
+% the different wave files. 
 %   Inputs:
 %   1) fnames - name of the wave files in a cell array. 
 %      Format:
@@ -23,13 +10,12 @@ function [sig,fs] = wav2sig(fnames, varargin)
 %       NOTE: 
 %        Each wave file should only have one channel.  If more than one 
 %        channels are present, only the first channel will be used.
-%   2) varargin (optional):
+%   2) (struct) vars - optional:
 %       a) fs - resample the wave file to this frequency
 %       b) tInt - 1x2 matrix to specify time interval (in seconds) to 
 %          trim down to. ex: [0 5] for 0->5 seconds
-%       c) weights - scaling vector of weights multiplied to each input
-%          file after it is normailzed. { w1; w2;...;wn } n = size(fnames)
-%
+%       c) weights - 1xn array of weights multiplied to each input
+%          file after it is normailzed. [w1 w2 w3 wn] -> n = size(fnames)
 %   Output:
 %   sig - matrix with the following properties:
 %       a) Number of rows is determined by the number of rows in the
@@ -42,98 +28,32 @@ function [sig,fs] = wav2sig(fnames, varargin)
 %   Edited by Grant Cox 8/22/17
 
 
-% Parameter check ********************************************************
-% The function must have at least 1 parameter, and at most 3 parameters
 if nargin == 0
     error('wavToSigMat must have at least 1 parameter');
 end
-if nargin > 4
-    error('There can only be a maximum of 4 parameters');
+if nargin > 2
+    error('There can only be a maximum of 2 parameters');
 end
-
-
-
 
 %***************************Parameter Checking*****************************
 tInt_flag = false;
 weight_flag = false;
-% If more than one parameter, check to see what the parameters are
-if nargin > 1
-    [numR1,numC1] = size(varargin{1});
-%     if numR1 ~= 1  % Argument cannot have more than 1 row
-%             error('2nd parameter must have the dimension 1x1 or 1x2');
-%     end
 
-    %   2 Parameters
-    %   sig = wav2sig(fnames,fs)
-    %   sig = wav2sig(fnames,tInt)
-    %   sig = wav2sig(fnames,weights)
-    if length(varargin) == 1
-        if iscell(varargin{1})
-            weights = varargin{1};
-            weight_flag = true;
-        elseif numC1 == 1
-            fs = varargin{1};
-        elseif ismatrix(varargin{1})
-            tInt = varargin{1};
-            tInt_flag = true;
-        else
-            error('tInt parameter must have the dimension 1x1 or 1x2');
-        end
-        
-        
-    %   3 parameters
-    %   sig = wav2sig(fnames,fs,tInt)
-    %   sig = wav2sig(fnames,fs,weights)
-    elseif length(varargin) == 2
-        if numC1 == 1
-            fs = varargin{1};
-        else
-            error('fs must have the dimension 1x1');
-        end
-        
-        if iscell(varargin{2})
-            weights = varargin{2};
-            weight_flag = true;
-        elseif ismatrix(varargin{2})
-            tInt = varargin{2};
-            tInt_flag = true;
-        else
-            error('Check argument specifications.');
-        end
-        
-        
-    %   4 parameters
-    %   sig = wav2sig(fnames,fs,tInt,weights)   
-    else
-        if numC1 == 1
-            fs = varargin{1};
-        else
-            error('fs must have the dimension 1x1');
-        end
-        
-        [numR2,numC2] = size(varargin{2});
-        
-        if numR2 ~= 1
-            error('tInt must have the dimension 1x1 or 1x2');
-        end
-        
-        if ismatrix(varargin{2})
-            tInt = varargin{2};
-            tInt_flag = true;
-        else
-            error('tInt must have the dimension 1x2');
-        end
-        
-        %vector of weights to scale rms vals
-        if iscell(varargin{3})
-            weights = varargin{3};
-            weight_flag = true;
-        end
+%if the strucutre is provided
+if nargin == 2
+    vars = varargin{1}; %assign strucutre
+    if isfield(vars,'tInt')
+       tInt_flag = true;
+       tInt = vars.tInt;
+    end
+    if isfield(vars,'weights')
+       weight_flag = true;
+       weights = vars.weights;
+    end
+    if isfield(vars,'fs')
+        fs = vars.fs;
     end
 end
-
-
 
 %*******************************Signal Checks******************************
 for fno=1:length(fnames)
@@ -145,12 +65,9 @@ for fno=1:length(fnames)
     end
 end
 
-
-%********************************CheckFS***********************************
-% If fs is not given, down sample to the signal with the lowest fs
 if exist('fs') == 0
     fs = min(nfs);
-end    
+end
 
 %********************************Resample**********************************
 for fno=1:length(fnames)   
@@ -202,8 +119,6 @@ if tInt_flag
 end
 
 
-
-
 %*******************************Normalize**********************************
 %9-11-2017 GC: I put the normalization here before the weights were
 %applied. The effect of the weights was being minimalized by the next two
@@ -212,17 +127,15 @@ normme = mean(std(sig));
 sig = sig / (10*normme);
 
 
-
-
 %******************************Scalar Weights******************************
-% if a vector of weights to scale the relative RMS values is present,
+% if an array of weights to scale the relative RMS values is present,
 % normalize each signal, then multiply it by the scalar weight.
 if weight_flag
     sig_std = zeros(1,length(fnames));
     for k=1:length(fnames)
         sig_std(k) = std(sig(:,k));
         sig(:,k) = sig(:,k) / sig_std(k);
-        sig(:,k) = sig(:,k) * weights{k};
+        sig(:,k) = sig(:,k) * weights(1,k);
     end
 end
 
@@ -240,4 +153,4 @@ end
 
 % Write out to a wav file
 % For debugging purpose
-audiowrite('wav2sigout.wav',sig,fs);
+%audiowrite('wav2sigout.wav',sig,fs);
