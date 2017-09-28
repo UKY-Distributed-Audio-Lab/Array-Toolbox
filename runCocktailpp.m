@@ -62,10 +62,14 @@ wavefiles = {'man1.wav';'woman1.wav'; 'woman3.wav'};
 nsource = length(wavefiles);
 % Read in wavefiles and resample signals if requested
 if exist('fsre','var')==1
-  sigin = wav2sig(wavefiles,fsre,[0 10]);  %  Read in over requested range (first 10 seconds)
+  s = struct('fs',fsre,'tInt',[0 10]); %make struct for wav2sig input
+  sigin = wav2sig(wavefiles,s);  %  Read in over requested range (first 10 seconds)
+  clear s;
   fs = fsre;  %  Reassign sampling rate
 else
-  [sigin, fs] = wav2sig(wavefiles,[0 10]);  %  Read in over requested range (first 10 seconds)
+  s = struct('tInt',[0 10]);
+  [sigin, fs] = wav2sig(wavefiles,s);  %  Read in over requested range (first 10 seconds)
+  clear s;
 end
 
 corners = [0 0 0; 3.6 3.6 2.2]';  %  opposite corners of room coordinates in meters (x,y,z)
@@ -164,5 +168,5 @@ end % Play
 
 % Save all channels of sigout
 if sflag == 1
-    wavwrite(sigout,fs,'sigout.wav');
+    audiowrite(sigout,fs,'sigout.wav');
 end
