@@ -1,13 +1,7 @@
-function [sig,fs] = wav2sig(fnames, varargin)
+function [sig,fs] = wav2sig(fnames,varargin)
 % This function reads in wave files and stores all the information into a 
 % single matrix with equal number of rows, with each column representing
-% the different wave files.  
-% 
-%   sig = wav2sig(fnames)
-%   sig = wav2sig(fnames,fs)
-%   sig = wav2sig(fnames,tInt)
-%   sig = wav2sig(fnames,fs,tInt)
-%
+% the different wave files. 
 %   Inputs:
 %   1) fnames - name of the wave files in a cell array. 
 %      Format:
@@ -16,11 +10,12 @@ function [sig,fs] = wav2sig(fnames, varargin)
 %       NOTE: 
 %        Each wave file should only have one channel.  If more than one 
 %        channels are present, only the first channel will be used.
-%   2) varargin (optional):
+%   2) (struct) vars - optional:
 %       a) fs - resample the wave file to this frequency
-%       b) tInt - 1x2 vector to specify time interval (in seconds) to 
-%          trim down to
-%
+%       b) tInt - 1x2 matrix to specify time interval (in seconds) to 
+%          trim down to. ex: [0 5] for 0->5 seconds
+%       c) weights - 1xn array of weights multiplied to each input
+%          file after it is normailzed. [w1 w2 w3 wn] -> n = size(fnames)
 %   Output:
 %   sig - matrix with the following properties:
 %       a) Number of rows is determined by the number of rows in the
@@ -30,72 +25,51 @@ function [sig,fs] = wav2sig(fnames, varargin)
 %          files
 %
 %   Written by Satoru Tagawa (staga2@uky.edu) 6/12/08
+%   Edited by Grant Cox 8/22/17
 
 
-% Parameter check ********************************************************
-% The function must have at least 1 parameter, and at most 3 parameters
 if nargin == 0
     error('wavToSigMat must have at least 1 parameter');
 end
-if nargin > 3
-    error('There can only be a maximum of 3 parameters');
+if nargin > 2
+    error('There can only be a maximum of 2 parameters');
 end
 
-% If more than one parameter, check to see what the parameters are
-if nargin > 1
-    [numR1,numC1] = size(varargin{1});
-    if numR1 ~= 1  % Argument cannot have more than 1 row
-            error('2nd parameter must have the dimension 1x1 or 1x2');
-    end
+%***************************Parameter Checking*****************************
+tInt_flag = false;
+weight_flag = false;
 
-    if length(varargin) == 1    % 2 parameters
-        if numC1 == 1
-            fs = varargin{1};
-        elseif numC1 == 2
-            tInt = varargin{1};
-        else
-            error('2nd parameter must have the dimension 1x1 or 1x2');
-        end
-    else                        % 3 parameters
-        if numC1 == 1
-            fs = varargin{1};
-        else
-            error('fs must have the dimension 1x1');
-        end
-        
-        [numR2,numC2] = size(varargin{2});
-        if numR2 ~= 1
-            error('tInt must have the dimension 1x1 or 1x2');
-        end
-        
-        if numC2 == 2
-            tInt = varargin{2};                 
-        else
-            error('tInt must have the dimension 1x2');
-        end
+%if the strucutre is provided
+if nargin == 2
+    vars = varargin{1}; %assign strucutre
+    if isfield(vars,'tInt')
+       tInt_flag = true;
+       tInt = vars.tInt;
+    end
+    if isfield(vars,'weights')
+       weight_flag = true;
+       weights = vars.weights;
+    end
+    if isfield(vars,'fs')
+        fs = vars.fs;
     end
 end
-%*************************************************************************
 
-
-% Read in each wave files and place in cell array "y"
+%*******************************Signal Checks******************************
 for fno=1:length(fnames)
-    % Read the wave file, determine its sample frequency
     [y{fno},nfs(fno)]=audioread(fnames{fno});
-    
-    % If more than one channel present, eliminate all but the first channel
+    %If more than one channel present, eliminate all but the first channel
     [nR,nChanOrig] = size(y{fno});
     if nChanOrig ~= 1
         y{fno} = y{fno}(:,1);
     end
 end
 
-% If fs is not given, down sample to the signal with the lowest fs
-if nargin == 1 || nargin == 2 && numC1 == 2
+if exist('fs') == 0
     fs = min(nfs);
-end    
+end
 
-% Resample the wave files
+%********************************Resample**********************************
 for fno=1:length(fnames)   
     yf{fno} = resample(y{fno},fs,nfs(fno));
     
@@ -103,6 +77,8 @@ for fno=1:length(fnames)
     siglen(fno) = length(yf{fno});
 end
 
+
+%*******************************Check Sig Length***************************
 maxSigLen = max(siglen);
 % Conform the number of rows to that of the longest signal
 for fno=1:length(fnames)
@@ -116,8 +92,10 @@ for fno=1:length(fnames)
     end
 end
 
+
+%*****************************Trim time interval***************************
 % if tInt is passed in, trim down or zero pad 'sig'
-if nargin==3 || nargin==2 && numC1 == 2
+if tInt_flag
     if tInt(1) > tInt(2)
         error('2nd column in tInt must be greater than the 1st column');
     elseif tInt(1) < 0 || tInt(2) < 0
@@ -140,6 +118,39 @@ if nargin==3 || nargin==2 && numC1 == 2
     sig = sig(begin_index:end_index,:);
 end
 
+
+%*******************************Normalize**********************************
+%9-11-2017 GC: I put the normalization here before the weights were
+%applied. The effect of the weights was being minimalized by the next two
+%lines whenever they were after the weight scaling in the code.
+normme = mean(std(sig));
+sig = sig / (10*normme);
+
+
+%******************************Scalar Weights******************************
+% if an array of weights to scale the relative RMS values is present,
+% normalize each signal, then multiply it by the scalar weight.
+if weight_flag
+    sig_std = zeros(1,length(fnames));
+    for k=1:length(fnames)
+        sig_std(k) = std(sig(:,k));
+        sig(:,k) = sig(:,k) / sig_std(k);
+        sig(:,k) = sig(:,k) * weights(1,k);
+    end
+end
+
+% Scale to fit in wavefile and limit clipping
+% normme = mean(std(sig));
+% sig = sig / (10*normme);
+%9-6-17, Grant Cox: this still clips very often. Perhaps we should find the
+%max and divide by it? Or put in some logic to decide which method to use.
+
+%9-11-17 GC: clipping varies very much with the different combinations of
+%files. Dividing sig by 10 * normme seems to cover most cases, but it also
+%looks like it reduces the effect of the weight vector on the signal. i.e.
+%changing the weights doesn't do a lot to the amplitude of the outputted
+%file
+
 % Write out to a wav file
 % For debugging purpose
-% wavwrite(sig,fs,'out.wav');
+%audiowrite('wav2sigout.wav',sig,fs);

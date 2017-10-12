@@ -1,3 +1,4 @@
+% edited by Grant Cox, 08/18/2017
 % Cocktail Party Analysis Script
 % This test script demonstates how to use the three beamforming
 % functions dsb.m, gjbf.m, and time-frequecy masking tfmask.m.  To run, make
@@ -30,44 +31,75 @@
 % and added time frequency masking
 
 
-% Setup
+% -------------------------------Setup------------------------------------
 % Initialize variables, open sound, define constants
-clear
-c = 345.6;  %  Speed of sound for recording
+clear;
+
+%--set loadVarsMat flag to 1 if you set saveVars in runCocktailp.m to 1. This
+%will load the variables from the .mat file into the workspace for use 
+%in this analysis script.
+%--set loadVarsMat flag to 0 if you would like to import the parameters
+% source postions, mic positions, sound speed and source name data from .txt
+% files.  This is useful if you have experimental data and can create these
+% files manually from the experimental recording . The load statements are
+% in the "Load mic and speaker positions" section
+loadVarsMat = 1;
+
+% SET SPEAKER OF INTEREST. Choose one speaker from the wavefiles cell array. 
+% The integer corresponds to a speaker in the array.
+speaker_of_interest_index = 3;
+
+
 tWin = 80e-3;  % Window size for block processing
 iw = 0;  %  Set flag to 1 for inverse distance weighting on delay and sum BF
-fName = 'cocktail11k.wav';  % source file of cocktail party data
-%  Get paramaters from wave file
-g = audioinfo(fName);
-sigSize = [g.TotalSamples, g.NumChannels];
-fs = g.SampleRate;
-N = sigSize(1);  % Total samples in each track
+
+
+%----------------------Load mic and speaker positions----------------------
+% The load function brings in 3 variables saved from running
+% runCocktailp.m: wavefiles(cell array of strings), mpos(3 x Y matrix of
+% doubles), and spos (3 x Z matrix of doubles)
+fName = 'sigout.wav';  % output from runCocktailp.m simulation
+source_info = audioinfo(fName);
+sigSize = [source_info.TotalSamples, source_info.NumChannels];
+fs = source_info.SampleRate;
+Num_samples = sigSize(1);  % Total samples in each track
+num_mics = sigSize(2);  % Number of microphones (should be same as channels)
+
+if loadVarsMat == 1
+    load('CocktailPartySimulation.mat');
+else
+    wavefilesraw = fileread('wavefiles.txt');
+    wavefiles = strsplit(wavefilesraw,',');
+    c = str2num(fileread('csim.txt')); % Sound speed
+    spos = load('spos.txt'); % source positions
+    mpos = load('mpos.txt'); % mic positions
+end
+
+%  Convert window size and increment to samples
 nWin = round(tWin*fs);  % Audio window size in samples
 if nWin/2 ~= fix(nWin/2)  % Ensure samples are even for overlap and add
     nWin = nWin+1;
 end
 nInc = round(nWin/2);  % Window increment %50 overlap
-M = sigSize(2);  % Number of microphones
 
-% Load mic and speaker positions
-m = load('micpos.dat')/100;  % cm -> m
-sRaw = load('srcpos.dat')/100;  % speaker positions, cm -> m
-people = {'mike' 'kate' 'phil' 'donohue'};  % all speakers
-for p=1:length(people)  % Iterate over everyone in the party
-    s.(people{p}) = sRaw(:,p);  % Set speaker location
+for p=1:length(wavefiles)  % Iterate over every wavefile name
+      speakers.wavefiles{p} = spos(:,p);  % Set speaker location
 end
 
-% Output source positions to screen for observation
-figure(1)
-plot3(m(1,:),m(2,:),m(3,:),'bo')
-hold on
-plot3(s.mike(1),s.mike(2),s.mike(3),'rx', 'MarkerSize', 14)
-plot3(s.kate(1),s.kate(2),s.kate(3),'g>', 'MarkerSize', 14)
-plot3(s.phil(1),s.phil(2),s.phil(3),'g>', 'MarkerSize', 14)
-plot3(s.donohue(1),s.donohue(2),s.donohue(3),'g>', 'MarkerSize', 14)
+speaker_of_interest = wavefiles{speaker_of_interest_index};
 
+%--------------Output source positions to screen for observation-----------
+figure(1)
+plot3(mpos(1,:),mpos(2,:),mpos(3,:),'bo')
+hold on
+for n=1:length(wavefiles)
+    %PLOT SOURCE POSITIONS ON FIGURE
+    plot3(speakers.wavefiles{n}(1),speakers.wavefiles{n}(2),speakers.wavefiles{n}(3),...
+        'g>','MarkerSize',14);
+end
+
+%--------------------------Add labels to figure----------------------------
 hold off
-%axis([min(corners(1,:)) max(corners(1,:)) min(corners(2,:)) max(corners(2,:)) min(corners(3,:)) max(corners(3,:))])
 title({'Mic position denote by blue Os, and source of interest denoted by red Xs', ...
         'and interfering source denoted by green triangles'})
 xlabel('X-Dimension in meters')
@@ -76,75 +108,58 @@ zlabel('Z-Dimension in meters')
 grid on
 
 
+%---------Find closest mic to speaker of interest for comparison-----------
+micDist = sum((mpos - speakers.wavefiles{speaker_of_interest_index} * ones(1,num_mics)).^2);
+[dum, cindex] = min(micDist);
 
-%  Find closest mic to speaker of interest for comparison
-mdd = sum((m - s.mike*ones(1,M)).^2);
-[dum, cindex] = min(mdd);
-
+%--------------------------Read source .wav file---------------------------
 [yin, fs] = audioread(fName);
 yclose = yin(:,cindex(1));
 
+
+%window editing
 hwin = hann(nWin+1);  %  Tappering window for overlap and add
 hwin = hwin(1:end-1);  % Make adjustment so even windows align
-% DSB
-x = zeros(nWin, M);  % Current window of audio data
-yDsb = zeros(N, 1); % delay-sum beamformer output
+
+%---------------------------------DSB--------------------------------------
+x = zeros(nWin, num_mics);  % Current window of audio data
+yDsb = zeros(Num_samples, 1); % delay-sum beamformer output
 hwt = waitbar(0,'Beamformer: DSB');
-for n=1:nInc:N-nWin  % iterate over 20ms windows
+for n=1:nInc:Num_samples-nWin  % iterate over 20ms windows
     % For each 20ms window save the previous and open the new
     xPrev = x;  x = yin(n:n+nWin-1,:);
-    dum = dsb(x, xPrev, fs, s.mike, m, c,iw); % run
+    dum = dsb(x, xPrev, fs, speakers.wavefiles{speaker_of_interest_index},...
+        mpos, c,iw); % run
     yDsb(n:n+nWin-1)  = yDsb(n:n+nWin-1) + dum.*hwin;
-    waitbar(n/N,hwt);
+    waitbar(n/Num_samples,hwt);
 end
 close(hwt)
 
-% Masking
-x = zeros(nWin, M);  % Current window of audio data
-yDsb1 = zeros(N, 1); % delay-sum beamformer output
+
+
+%--------------------------------Masking-----------------------------------
 hwt = waitbar(0,'Beamformer: DSB with TF Masking');
-for n=1:nInc:N-nWin  % iterate over 20ms windows
-    % For each 20ms window save the previous and open the new
-    xPrev = x;  x = yin(n:n+nWin-1,:);
-    dum = dsb(x, xPrev, fs, s.mike, m, c); % run
-    yDsb1(n:n+nWin-1)  = yDsb1(n:n+nWin-1) + dum.*hwin;
-    waitbar(n/(4*N),hwt);
+yDsbMask = [];
+for p=1:length(wavefiles)
+    x = zeros(nWin, num_mics);  % Current window of audio data
+    yt = zeros(Num_samples, 1); % delay-sum beamformer output
+    for n=1:nInc:Num_samples-nWin  % iterate over 20ms windows
+        % For each 20ms window save the previous and open the new
+        xPrev = x;  x = yin(n:n+nWin-1,:);
+        %DSB to one source per loop (the for loop with variable p)
+        dum = dsb(x, xPrev, fs, speakers.wavefiles{p}, mpos, c); % run
+        yt(n:n+nWin-1) = yt(n:n+nWin-1) + dum.*hwin;
+        waitbar((n-1)/4 + n/(4*Num_samples),hwt);
+    end
+    %concactenate
+    yDsbMask = [yDsbMask,yt];
 end
-x = zeros(nWin, M);  % Current window of audio data
-yDsb2 = zeros(N, 1); % delay-sum beamformer output
-for n=1:nInc:N-nWin  % iterate over 20ms windows
-    % For each 20ms window save the previous and open the new
-    xPrev = x;  x = yin(n:n+nWin-1,:);
-    dum = dsb(x, xPrev, fs, s.kate, m, c); % run
-    yDsb2(n:n+nWin-1)  = yDsb2(n:n+nWin-1) + dum.*hwin;
-    waitbar(1/4+n/(4*N),hwt);
-end
-x = zeros(nWin, M);  % Current window of audio data
-yDsb3 = zeros(N, 1); % delay-sum beamformer output
-for n=1:nInc:N-nWin  % iterate over 20ms windows
-    % For each 20ms window save the previous and open the new
-    xPrev = x;  x = yin(n:n+nWin-1,:);
-    dum = dsb(x, xPrev, fs, s.phil, m, c); % run
-    yDsb3(n:n+nWin-1)  = yDsb3(n:n+nWin-1) + dum.*hwin;
-    waitbar(2/4+n/(4*N),hwt);
-end
-x = zeros(nWin, M);  % Current window of audio data
-yDsb4 = zeros(N, 1); % delay-sum beamformer output
-for n=1:nInc:N-nWin  % iterate over 20ms windows
-    % For each 20ms window save the previous and open the new
-    xPrev = x;  x = yin(n:n+nWin-1,:);
-    dum = dsb(x, xPrev, fs, s.donohue, m, c); % run
-    yDsb4(n:n+nWin-1)  = yDsb4(n:n+nWin-1) + dum.*hwin;
-    waitbar(3/4+n/(4*N),hwt);
-end
-yMask = tfmask([yDsb1, yDsb2, yDsb3, yDsb4],1,tWin,4,fs);
-
-close(hwt)
+yMask = tfmask(yDsbMask,speaker_of_interest_index,tWin,4,fs);
+close(hwt);
 
 
+%----------------------------Traditional GJBF------------------------------
 
-
-% Traditional GJBF
 % Notice that several parameters must be saved and recycled between
 % iterations to ensure that the final conditions from one audio
 % window become the initial conditions for the next.
@@ -155,86 +170,101 @@ K = [];  % MC NLMS norm threshold not needed
 bmWForce = [];  mcWForce = [];  % not locking taps right now
 snrThresh = [];  snrRate = [];  % no SNR thresholding right now
 snrInit = [];
-x = zeros(nInc, M);  % Current window of audio data
+x = zeros(nInc, num_mics);  % Current window of audio data
 b = zeros(nInc, 1);  % embedded DSB output
-z = zeros(nInc, M-1);  % BM output
+z = zeros(nInc, num_mics-1);  % BM output
 bmWall = [];  % BM LMS taps (not needed here still but need [])
 mcWall = [];  % MC LMS taps (initialize to [])
-yGjbf = zeros(N, 1); % traditional GJBF output
+yGjbf = zeros(Num_samples, 1); % traditional GJBF output
 
 hwt = waitbar(0,'Beamformer: GJBF');
-for n=1:nInc:N-nWin  % iterate over 20ms windows     
+for n=1:nInc:Num_samples-nWin  % iterate over 20ms windows     
     xPrev = x;  x = yin(n:n+nWin-1,:); % load audio
     % Call beamforming function for this window
     [dum, bmWall, mcWall, snrAll, b, z] = ...
-        gjbf(x, fs, s.mike, m, c, p, q, mu, order, beta, ...
+        gjbf(x, fs, speakers.wavefiles{speaker_of_interest_index}, ...
+             mpos, c, p, q, mu, order, beta, ...
              phi, psi, K, xPrev, b, z, bmWall(:,:,end), ...
              mcWall(:,:,end), snrThresh, snrRate, snrInit, ...
              bmWForce, mcWForce);
          yGjbf(n:n+nWin-1) = yGjbf(n:n+nWin-1) + dum.*hwin;
-         waitbar(n/N,hwt);
+         waitbar(n/Num_samples,hwt);
 end
 close(hwt)
 
 
-% Robust GJBF (Hoshuyama)
+
+
+%-------------------------Robust GJBF (Hoshuyama)--------------------------
 % Need to recycle initial/final values between windows here, too
 p = 5;  q =10; % guess number of signal propagation samples across array
-[phi, psi] = ccafbounds(m, fs, c, p, order);  % calculate CCAF bounds
+[phi, psi] = ccafbounds(mpos, fs, c, p, order);  % calculate CCAF bounds
 K = .01; % MC LMS norm constaint
 snrThresh = -10;  snrRate = 2;  % -10dB threshold, check twice/window
-snrAll = -Inf*ones(1,M);  % saved, recycled SNR values
-x = zeros(nInc, M);  % Current window of audio data
+snrAll = -Inf*ones(1,num_mics);  % saved, recycled SNR values
+x = zeros(nInc, num_mics);  % Current window of audio data
 b = zeros(nInc, 1);  % embedded DSB output
-z = zeros(nInc, M);  % BM output
+z = zeros(nInc, num_mics);  % BM output
 bmWall = [];  % BM LMS taps (initialize to [])
 mcWall = [];  % MC LMS taps (initialize to [])
-yRobustGsc = zeros(N, 1); % robust GSC output
+yRobustGsc = zeros(Num_samples, 1); % robust GSC output
 hwt = waitbar(0,'Beamformer: Robust GSC');
-for n=1:nInc:N-nWin  % iterate over 20ms windows
+for n=1:nInc:Num_samples-nWin  % iterate over 20ms windows
     xPrev = x;  x = yin(n:n+nWin-1,:); % load audio
     % Call beamforming function for this window
     [dum, bmWall, mcWall, snrAll, b, z] = ...
-	gjbf(x, fs, s.mike, m, c, p, q, mu, order, beta, phi, ...
+	gjbf(x, fs, speakers.wavefiles{speaker_of_interest_index}, ...
+         mpos, c, p, q, mu, order, beta, phi, ...
 	     psi, K, xPrev, b, z, bmWall(:,:,end), ...
 	     mcWall(:,:,end), snrThresh, snrRate, snrAll(end, :), ...
 	     bmWForce, mcWForce);
      yRobustGsc(n:n+nWin-1) = yRobustGsc(n:n+nWin-1) + dum.*hwin;
-     waitbar(n/N,hwt);
+     waitbar(n/Num_samples,hwt);
 end
 close(hwt)
 
+
+
+
+%---------------------------------PLAYBACK---------------------------------
+%--------------------------------------------------------------------------
 % Uncomment next 5 lines to save results for later listening
 audiowrite('yClose.wav', yclose/(sqrt(2)*max(abs(yclose))), fs);
-audiowrite('yDsb.wav', yDsb/(sqrt(2)*max(abs(yDsb))), fs);
+audiowrite('yDsb.wav', yDsb(1)/(sqrt(2)*max(abs(yDsb))), fs);
 audiowrite('yGjbf.wav', yGjbf/(sqrt(2)*max(abs(yGjbf))), fs);
 audiowrite('yRobustGsc.wav', yRobustGsc/(sqrt(2)*max(abs(yRobustGsc))), fs);
 audiowrite('yMask.wav', yMask/(sqrt(2)*max(abs(yMask))), fs);
 
-
-%Play mic closest to speaker of interest
-hwt = waitbar(.1,{'Playing closest mic recording', ' Male speaker of interest talking about hockey being', ...
-                   'talked over by a speaker discussing snowboarding loudly'});
+%------------------Play mic closest to speaker of interest-----------------
+hwt = waitbar(.1,{'Playing closest mic recording to ', speaker_of_interest});
 sound(yclose/(std(yclose)*10),fs)
 pause(length(yclose)/fs)
-%  Play DSB with inverse weighting result
+
+%-------------------Play DSB with inverse weighting result-----------------
 if iw == 1
-   waitbar(.3,hwt,{'Playing DSB (inverse distance weighting) result', ' Male Speaker of Interest Talking About Hockey'});soundsc(yDsb,fs)
+   waitbar(.3,hwt,{'Playing DSB (inverse distance weighting) result for ', speaker_of_interest});
+   soundsc(yDsb,fs)
 else
-   waitbar(.3,hwt,{'Playing DSB result', ' Male Speaker of Interest Talking About Hockey'});soundsc(yDsb,fs)
+   waitbar(.3,hwt,{'Playing DSB result for ', speaker_of_interest});soundsc(yDsb,fs)
 end    
 sound(yDsb/(std(yDsb)*10),fs)
-pause(length(yDsb)/fs)
-%  Play Griffiths Jim result
-waitbar(.5,hwt,{'Playing GJBF result', ' Male Speaker of Interest Talking About Hockey'});
+pause(length(yDsb)/fs+.5)
+
+%-------------------------Play Griffiths Jim result------------------------
+waitbar(.5,hwt,{'Playing GJBF result for ',speaker_of_interest});
 sound(yGjbf/(std(yGjbf)*10),fs)
-pause(length(yGjbf)/fs)
-%  Play Robust GSC result
-waitbar(.7,hwt,{'Playing Robust GSC result', ' Male Speaker of Interest Talking About Hockey'});
+pause(length(yGjbf)/fs+.5)
+
+%---------------------------Play Robust GSC result-------------------------
+waitbar(.7,hwt,{'Playing Robust GSC result for ', speaker_of_interest});
 sound(yRobustGsc/(std(yRobustGsc)*10),fs)
-pause(length(yRobustGsc)/fs)
-%  Play Masking Result
-waitbar(.9,hwt,{'Playing TF Maksing result', ' Male Speaker of Interest Talking About Hockey'});
+pause(length(yRobustGsc)/fs+.5)
+
+%----------------------------Play Masking Result---------------------------
+waitbar(.9,hwt,{'Playing TF Maksing result for ', speaker_of_interest});
 sound(yMask/(std(yMask)*10),fs)
-pause(length(yMask)/fs)
+pause(length(yMask)/fs+.5)
 close(hwt)
+
+%clear workspace
+clearvars

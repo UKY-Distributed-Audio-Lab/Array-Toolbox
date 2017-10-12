@@ -81,7 +81,7 @@ function [z, wSave, mcAdapt, snrSave] = bmlms(x, b, mu, order, ...
     beta, phi, psi, bInit, wInit, wForce, snrThresh, nSnr, snrInit)
 
 %% Argument Error Checking
-error(nargchk(13, 13, nargin));
+narginchk(13,13);
 if ~isreal(x) || length(size(x)) ~= 2 || ~all(all(isfinite(x)))
     error('x must be a real matrix');
 elseif ~isvector(b) || ~isreal(b) || ~all(isfinite(b))
