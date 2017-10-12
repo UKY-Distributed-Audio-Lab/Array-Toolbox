@@ -115,10 +115,14 @@ mpos = regmicsplane(micplane, micspacing);  % generate mics rectilinearly in a p
 % Read in wavefiles to matrix columns and resample signals if requested and
 % trim to shortest length signal or requested end point.
 if exist('fsre','var')==1
-  sigin = wav2sig(wavefiles,fsre,[0 Secondsin]);  %  Read in over requested range (first 10 seconds)
+  s = struct('fs',fsre,'tInt',[0 Secondsin]); %make struct for wav2sig input
+  sigin = wav2sig(wavefiles,s);  %  Read in over requested range (first 10 seconds)
+  clear s;
   fs = fsre;  %  Reassign sampling rate
 else
-  [sigin, fs] = wav2sig(wavefiles,[0 Secondsin]);  %  Read in over requested range (first 10 seconds)
+  s = struct('tInt',[0 Secondsin]);
+  [sigin, fs] = wav2sig(wavefiles,s);  %  Read in over requested range (first 10 seconds)
+  clear s;
 end
 
 %----------------------------------REVERB----------------------------------
