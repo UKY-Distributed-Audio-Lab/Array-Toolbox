@@ -1,0 +1,617 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>partyanalysis</title><meta name="generator" content="MATLAB 9.1"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-09-02"><meta name="DC.source" content="partyanalysis.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="comment">% edited by Grant Cox, 08/18/2017</span>
+<span class="comment">% Cocktail Party Analysis Script</span>
+<span class="comment">% This test script demonstates how to use the three beamforming</span>
+<span class="comment">% functions dsb.m, gjbf.m, and time-frequecy masking tfmask.m.  To run, make</span>
+<span class="comment">% sure that the following files can be found:</span>
+<span class="comment">%</span>
+<span class="comment">% * dsb.m</span>
+<span class="comment">% * gjbf.m</span>
+<span class="comment">% * bmlms.m</span>
+<span class="comment">% * ccafbounds.m</span>
+<span class="comment">% * tfmask.m</span>
+<span class="comment">% * getmask.m</span>
+<span class="comment">% * micpos.dat</span>
+<span class="comment">% * srcpos.dat</span>
+<span class="comment">% * cocktail11k.wav</span>
+<span class="comment">%</span>
+<span class="comment">% This script shows how to implement four beamforming algorithms:</span>
+<span class="comment">%</span>
+<span class="comment">% * Delay-Sum Beamform (DSB)</span>
+<span class="comment">% * Traditional Griffiths-Jim Beamformer (GJBF)</span>
+<span class="comment">% * Robust Generalised Sidelobe Canceller (Improved GJBF)</span>
+<span class="comment">% * TF masking (post processing, our variant).</span>
+<span class="comment">%</span>
+<span class="comment">% Note that there are four speakers in the room and Mike will be the</span>
+<span class="comment">% target, and is talking about hockey. Phil is the primary interferer and he</span>
+<span class="comment">% even closer to the Microphone closest to Mike and talking louder.</span>
+<span class="comment">%</span>
+<span class="comment">% Written by Phil Townsend (jptown0@engr.uky.edu) 6/2/08</span>
+<span class="comment">% Updated by Kevin D Donohue August 2014 to remove correlation, apply taper</span>
+<span class="comment">% window for overlap and add, apply the invese distance BF option to delay and summ</span>
+<span class="comment">% and added time frequency masking</span>
+
+
+<span class="comment">% -------------------------------Setup------------------------------------</span>
+<span class="comment">% Initialize variables, open sound, define constants</span>
+clear;
+
+<span class="comment">%--set loadVarsMat flag to 1 if you set saveVars in runCocktailp.m to 1. This</span>
+<span class="comment">%will load the variables from the .mat file into the workspace for use</span>
+<span class="comment">%in this analysis script.</span>
+<span class="comment">%--set loadVarsMat flag to 0 if you would like to import the parameters</span>
+<span class="comment">% source postions, mic positions, sound speed and source name data from .txt</span>
+<span class="comment">% files.  This is useful if you have experimental data and can create these</span>
+<span class="comment">% files manually from the experimental recording . The load statements are</span>
+<span class="comment">% in the "Load mic and speaker positions" section</span>
+loadVarsMat = 1;
+
+<span class="comment">% SET SPEAKER OF INTEREST. Choose one speaker from the wavefiles cell array.</span>
+<span class="comment">% The integer corresponds to a speaker in the array.</span>
+speaker_of_interest_index = 3;
+
+
+tWin = 80e-3;  <span class="comment">% Window size for block processing</span>
+iw = 0;  <span class="comment">%  Set flag to 1 for inverse distance weighting on delay and sum BF</span>
+
+
+<span class="comment">%----------------------Load mic and speaker positions----------------------</span>
+<span class="comment">% The load function brings in 3 variables saved from running</span>
+<span class="comment">% runCocktailp.m: wavefiles(cell array of strings), mpos(3 x Y matrix of</span>
+<span class="comment">% doubles), and spos (3 x Z matrix of doubles)</span>
+fName = <span class="string">'sigout.wav'</span>;  <span class="comment">% output from runCocktailp.m simulation</span>
+source_info = audioinfo(fName);
+sigSize = [source_info.TotalSamples, source_info.NumChannels];
+fs = source_info.SampleRate;
+Num_samples = sigSize(1);  <span class="comment">% Total samples in each track</span>
+num_mics = sigSize(2);  <span class="comment">% Number of microphones (should be same as channels)</span>
+
+<span class="keyword">if</span> loadVarsMat == 1
+    load(<span class="string">'CocktailPartySimulation.mat'</span>);
+<span class="keyword">else</span>
+    wavefilesraw = fileread(<span class="string">'wavefiles.txt'</span>);
+    wavefiles = strsplit(wavefilesraw,<span class="string">','</span>);
+    c = str2num(fileread(<span class="string">'csim.txt'</span>)); <span class="comment">% Sound speed</span>
+    spos = load(<span class="string">'spos.txt'</span>); <span class="comment">% source positions</span>
+    mpos = load(<span class="string">'mpos.txt'</span>); <span class="comment">% mic positions</span>
+<span class="keyword">end</span>
+
+<span class="comment">%  Convert window size and increment to samples</span>
+nWin = round(tWin*fs);  <span class="comment">% Audio window size in samples</span>
+<span class="keyword">if</span> nWin/2 ~= fix(nWin/2)  <span class="comment">% Ensure samples are even for overlap and add</span>
+    nWin = nWin+1;
+<span class="keyword">end</span>
+nInc = round(nWin/2);  <span class="comment">% Window increment %50 overlap</span>
+
+<span class="keyword">for</span> p=1:length(wavefiles)  <span class="comment">% Iterate over every wavefile name</span>
+      speakers.wavefiles{p} = spos(:,p);  <span class="comment">% Set speaker location</span>
+<span class="keyword">end</span>
+
+speaker_of_interest = wavefiles{speaker_of_interest_index};
+
+<span class="comment">%--------------Output source positions to screen for observation-----------</span>
+figure(1)
+plot3(mpos(1,:),mpos(2,:),mpos(3,:),<span class="string">'bo'</span>)
+hold <span class="string">on</span>
+<span class="keyword">for</span> n=1:length(wavefiles)
+    <span class="comment">%PLOT SOURCE POSITIONS ON FIGURE</span>
+    plot3(speakers.wavefiles{n}(1),speakers.wavefiles{n}(2),speakers.wavefiles{n}(3),<span class="keyword">...</span>
+        <span class="string">'g&gt;'</span>,<span class="string">'MarkerSize'</span>,14);
+<span class="keyword">end</span>
+
+<span class="comment">%--------------------------Add labels to figure----------------------------</span>
+hold <span class="string">off</span>
+title({<span class="string">'Mic position denote by blue Os, and source of interest denoted by red Xs'</span>, <span class="keyword">...</span>
+        <span class="string">'and interfering source denoted by green triangles'</span>})
+xlabel(<span class="string">'X-Dimension in meters'</span>)
+ylabel(<span class="string">'Y-Dimension in meters'</span>)
+zlabel(<span class="string">'Z-Dimension in meters'</span>)
+grid <span class="string">on</span>
+
+
+<span class="comment">%---------Find closest mic to speaker of interest for comparison-----------</span>
+micDist = sum((mpos - speakers.wavefiles{speaker_of_interest_index} * ones(1,num_mics)).^2);
+[dum, cindex] = min(micDist);
+
+<span class="comment">%--------------------------Read source .wav file---------------------------</span>
+[yin, fs] = audioread(fName);
+yclose = yin(:,cindex(1));
+
+
+<span class="comment">%window editing</span>
+hwin = hann(nWin+1);  <span class="comment">%  Tappering window for overlap and add</span>
+hwin = hwin(1:end-1);  <span class="comment">% Make adjustment so even windows align</span>
+
+<span class="comment">%---------------------------------DSB--------------------------------------</span>
+x = zeros(nWin, num_mics);  <span class="comment">% Current window of audio data</span>
+yDsb = zeros(Num_samples, 1); <span class="comment">% delay-sum beamformer output</span>
+hwt = waitbar(0,<span class="string">'Beamformer: DSB'</span>);
+<span class="keyword">for</span> n=1:nInc:Num_samples-nWin  <span class="comment">% iterate over 20ms windows</span>
+    <span class="comment">% For each 20ms window save the previous and open the new</span>
+    xPrev = x;  x = yin(n:n+nWin-1,:);
+    dum = dsb(x, xPrev, fs, speakers.wavefiles{speaker_of_interest_index},<span class="keyword">...</span>
+        mpos, c,iw); <span class="comment">% run</span>
+    yDsb(n:n+nWin-1)  = yDsb(n:n+nWin-1) + dum.*hwin;
+    waitbar(n/Num_samples,hwt);
+<span class="keyword">end</span>
+close(hwt)
+
+
+
+<span class="comment">%--------------------------------Masking-----------------------------------</span>
+hwt = waitbar(0,<span class="string">'Beamformer: DSB with TF Masking'</span>);
+yDsbMask = [];
+<span class="keyword">for</span> p=1:length(wavefiles)
+    x = zeros(nWin, num_mics);  <span class="comment">% Current window of audio data</span>
+    yt = zeros(Num_samples, 1); <span class="comment">% delay-sum beamformer output</span>
+    <span class="keyword">for</span> n=1:nInc:Num_samples-nWin  <span class="comment">% iterate over 20ms windows</span>
+        <span class="comment">% For each 20ms window save the previous and open the new</span>
+        xPrev = x;  x = yin(n:n+nWin-1,:);
+        <span class="comment">%DSB to one source per loop (the for loop with variable p)</span>
+        dum = dsb(x, xPrev, fs, speakers.wavefiles{p}, mpos, c); <span class="comment">% run</span>
+        yt(n:n+nWin-1) = yt(n:n+nWin-1) + dum.*hwin;
+        waitbar((n-1)/4 + n/(4*Num_samples),hwt);
+    <span class="keyword">end</span>
+    <span class="comment">%concactenate</span>
+    yDsbMask = [yDsbMask,yt];
+<span class="keyword">end</span>
+yMask = tfmask(yDsbMask,speaker_of_interest_index,tWin,4,fs);
+close(hwt);
+
+
+<span class="comment">%----------------------------Traditional GJBF------------------------------</span>
+
+<span class="comment">% Notice that several parameters must be saved and recycled between</span>
+<span class="comment">% iterations to ensure that the final conditions from one audio</span>
+<span class="comment">% window become the initial conditions for the next.</span>
+mu = .1;  order = 20;  beta = .9;  <span class="comment">% LMS filter parameters</span>
+p = 0;  q = 0;  <span class="comment">% don't need these now, set to zero</span>
+phi = [];  psi = [];  <span class="comment">% CCAF bounds not needed</span>
+K = [];  <span class="comment">% MC NLMS norm threshold not needed</span>
+bmWForce = [];  mcWForce = [];  <span class="comment">% not locking taps right now</span>
+snrThresh = [];  snrRate = [];  <span class="comment">% no SNR thresholding right now</span>
+snrInit = [];
+x = zeros(nInc, num_mics);  <span class="comment">% Current window of audio data</span>
+b = zeros(nInc, 1);  <span class="comment">% embedded DSB output</span>
+z = zeros(nInc, num_mics-1);  <span class="comment">% BM output</span>
+bmWall = [];  <span class="comment">% BM LMS taps (not needed here still but need [])</span>
+mcWall = [];  <span class="comment">% MC LMS taps (initialize to [])</span>
+yGjbf = zeros(Num_samples, 1); <span class="comment">% traditional GJBF output</span>
+
+hwt = waitbar(0,<span class="string">'Beamformer: GJBF'</span>);
+<span class="keyword">for</span> n=1:nInc:Num_samples-nWin  <span class="comment">% iterate over 20ms windows</span>
+    xPrev = x;  x = yin(n:n+nWin-1,:); <span class="comment">% load audio</span>
+    <span class="comment">% Call beamforming function for this window</span>
+    [dum, bmWall, mcWall, snrAll, b, z] = <span class="keyword">...</span>
+        gjbf(x, fs, speakers.wavefiles{speaker_of_interest_index}, <span class="keyword">...</span>
+             mpos, c, p, q, mu, order, beta, <span class="keyword">...</span>
+             phi, psi, K, xPrev, b, z, bmWall(:,:,end), <span class="keyword">...</span>
+             mcWall(:,:,end), snrThresh, snrRate, snrInit, <span class="keyword">...</span>
+             bmWForce, mcWForce);
+         yGjbf(n:n+nWin-1) = yGjbf(n:n+nWin-1) + dum.*hwin;
+         waitbar(n/Num_samples,hwt);
+<span class="keyword">end</span>
+close(hwt)
+
+
+
+
+<span class="comment">%-------------------------Robust GJBF (Hoshuyama)--------------------------</span>
+<span class="comment">% Need to recycle initial/final values between windows here, too</span>
+p = 5;  q =10; <span class="comment">% guess number of signal propagation samples across array</span>
+[phi, psi] = ccafbounds(mpos, fs, c, p, order);  <span class="comment">% calculate CCAF bounds</span>
+K = .01; <span class="comment">% MC LMS norm constaint</span>
+snrThresh = -10;  snrRate = 2;  <span class="comment">% -10dB threshold, check twice/window</span>
+snrAll = -Inf*ones(1,num_mics);  <span class="comment">% saved, recycled SNR values</span>
+x = zeros(nInc, num_mics);  <span class="comment">% Current window of audio data</span>
+b = zeros(nInc, 1);  <span class="comment">% embedded DSB output</span>
+z = zeros(nInc, num_mics);  <span class="comment">% BM output</span>
+bmWall = [];  <span class="comment">% BM LMS taps (initialize to [])</span>
+mcWall = [];  <span class="comment">% MC LMS taps (initialize to [])</span>
+yRobustGsc = zeros(Num_samples, 1); <span class="comment">% robust GSC output</span>
+hwt = waitbar(0,<span class="string">'Beamformer: Robust GSC'</span>);
+<span class="keyword">for</span> n=1:nInc:Num_samples-nWin  <span class="comment">% iterate over 20ms windows</span>
+    xPrev = x;  x = yin(n:n+nWin-1,:); <span class="comment">% load audio</span>
+    <span class="comment">% Call beamforming function for this window</span>
+    [dum, bmWall, mcWall, snrAll, b, z] = <span class="keyword">...</span>
+	gjbf(x, fs, speakers.wavefiles{speaker_of_interest_index}, <span class="keyword">...</span>
+         mpos, c, p, q, mu, order, beta, phi, <span class="keyword">...</span>
+	     psi, K, xPrev, b, z, bmWall(:,:,end), <span class="keyword">...</span>
+	     mcWall(:,:,end), snrThresh, snrRate, snrAll(end, :), <span class="keyword">...</span>
+	     bmWForce, mcWForce);
+     yRobustGsc(n:n+nWin-1) = yRobustGsc(n:n+nWin-1) + dum.*hwin;
+     waitbar(n/Num_samples,hwt);
+<span class="keyword">end</span>
+close(hwt)
+
+
+
+
+<span class="comment">%---------------------------------PLAYBACK---------------------------------</span>
+<span class="comment">%--------------------------------------------------------------------------</span>
+<span class="comment">% Uncomment next 5 lines to save results for later listening</span>
+audiowrite(<span class="string">'yClose.wav'</span>, yclose/(sqrt(2)*max(abs(yclose))), fs);
+audiowrite(<span class="string">'yDsb.wav'</span>, yDsb(1)/(sqrt(2)*max(abs(yDsb))), fs);
+audiowrite(<span class="string">'yGjbf.wav'</span>, yGjbf/(sqrt(2)*max(abs(yGjbf))), fs);
+audiowrite(<span class="string">'yRobustGsc.wav'</span>, yRobustGsc/(sqrt(2)*max(abs(yRobustGsc))), fs);
+audiowrite(<span class="string">'yMask.wav'</span>, yMask/(sqrt(2)*max(abs(yMask))), fs);
+
+<span class="comment">%------------------Play mic closest to speaker of interest-----------------</span>
+hwt = waitbar(.1,{<span class="string">'Playing closest mic recording to '</span>, speaker_of_interest});
+sound(yclose/(std(yclose)*10),fs)
+pause(length(yclose)/fs)
+
+<span class="comment">%-------------------Play DSB with inverse weighting result-----------------</span>
+<span class="keyword">if</span> iw == 1
+   waitbar(.3,hwt,{<span class="string">'Playing DSB (inverse distance weighting) result for '</span>, speaker_of_interest});
+   soundsc(yDsb,fs)
+<span class="keyword">else</span>
+   waitbar(.3,hwt,{<span class="string">'Playing DSB result for '</span>, speaker_of_interest});soundsc(yDsb,fs)
+<span class="keyword">end</span>
+sound(yDsb/(std(yDsb)*10),fs)
+pause(length(yDsb)/fs+.5)
+
+<span class="comment">%-------------------------Play Griffiths Jim result------------------------</span>
+waitbar(.5,hwt,{<span class="string">'Playing GJBF result for '</span>,speaker_of_interest});
+sound(yGjbf/(std(yGjbf)*10),fs)
+pause(length(yGjbf)/fs+.5)
+
+<span class="comment">%---------------------------Play Robust GSC result-------------------------</span>
+waitbar(.7,hwt,{<span class="string">'Playing Robust GSC result for '</span>, speaker_of_interest});
+sound(yRobustGsc/(std(yRobustGsc)*10),fs)
+pause(length(yRobustGsc)/fs+.5)
+
+<span class="comment">%----------------------------Play Masking Result---------------------------</span>
+waitbar(.9,hwt,{<span class="string">'Playing TF Maksing result for '</span>, speaker_of_interest});
+sound(yMask/(std(yMask)*10),fs)
+pause(length(yMask)/fs+.5)
+close(hwt)
+
+<span class="comment">%clear workspace</span>
+clearvars
+</pre><pre class="codeoutput error">Error using waitbar (line 92)
+The second argument must be a message string or a handle to an existing waitbar.
+
+Error in partyanalysis (line 191)
+         waitbar(n/Num_samples,hwt);
+</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2016b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+% edited by Grant Cox, 08/18/2017
+% Cocktail Party Analysis Script
+% This test script demonstates how to use the three beamforming
+% functions dsb.m, gjbf.m, and time-frequecy masking tfmask.m.  To run, make
+% sure that the following files can be found:
+%
+% * dsb.m
+% * gjbf.m
+% * bmlms.m
+% * ccafbounds.m
+% * tfmask.m
+% * getmask.m
+% * micpos.dat
+% * srcpos.dat
+% * cocktail11k.wav
+%
+% This script shows how to implement four beamforming algorithms:
+%
+% * Delay-Sum Beamform (DSB)
+% * Traditional Griffiths-Jim Beamformer (GJBF)
+% * Robust Generalised Sidelobe Canceller (Improved GJBF)
+% * TF masking (post processing, our variant). 
+%
+% Note that there are four speakers in the room and Mike will be the
+% target, and is talking about hockey. Phil is the primary interferer and he
+% even closer to the Microphone closest to Mike and talking louder.
+%
+% Written by Phil Townsend (jptown0@engr.uky.edu) 6/2/08
+% Updated by Kevin D Donohue August 2014 to remove correlation, apply taper
+% window for overlap and add, apply the invese distance BF option to delay and summ
+% and added time frequency masking
+
+
+% REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-SetupREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% Initialize variables, open sound, define constants
+clear;
+
+%REPLACE_WITH_DASH_DASHset loadVarsMat flag to 1 if you set saveVars in runCocktailp.m to 1. This
+%will load the variables from the .mat file into the workspace for use 
+%in this analysis script.
+%REPLACE_WITH_DASH_DASHset loadVarsMat flag to 0 if you would like to import the parameters
+% source postions, mic positions, sound speed and source name data from .txt
+% files.  This is useful if you have experimental data and can create these
+% files manually from the experimental recording . The load statements are
+% in the "Load mic and speaker positions" section
+loadVarsMat = 1;
+
+% SET SPEAKER OF INTEREST. Choose one speaker from the wavefiles cell array. 
+% The integer corresponds to a speaker in the array.
+speaker_of_interest_index = 3;
+
+
+tWin = 80e-3;  % Window size for block processing
+iw = 0;  %  Set flag to 1 for inverse distance weighting on delay and sum BF
+
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHLoad mic and speaker positionsREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% The load function brings in 3 variables saved from running
+% runCocktailp.m: wavefiles(cell array of strings), mpos(3 x Y matrix of
+% doubles), and spos (3 x Z matrix of doubles)
+fName = 'sigout.wav';  % output from runCocktailp.m simulation
+source_info = audioinfo(fName);
+sigSize = [source_info.TotalSamples, source_info.NumChannels];
+fs = source_info.SampleRate;
+Num_samples = sigSize(1);  % Total samples in each track
+num_mics = sigSize(2);  % Number of microphones (should be same as channels)
+
+if loadVarsMat == 1
+    load('CocktailPartySimulation.mat');
+else
+    wavefilesraw = fileread('wavefiles.txt');
+    wavefiles = strsplit(wavefilesraw,',');
+    c = str2num(fileread('csim.txt')); % Sound speed
+    spos = load('spos.txt'); % source positions
+    mpos = load('mpos.txt'); % mic positions
+end
+
+%  Convert window size and increment to samples
+nWin = round(tWin*fs);  % Audio window size in samples
+if nWin/2 ~= fix(nWin/2)  % Ensure samples are even for overlap and add
+    nWin = nWin+1;
+end
+nInc = round(nWin/2);  % Window increment %50 overlap
+
+for p=1:length(wavefiles)  % Iterate over every wavefile name
+      speakers.wavefiles{p} = spos(:,p);  % Set speaker location
+end
+
+speaker_of_interest = wavefiles{speaker_of_interest_index};
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHOutput source positions to screen for observationREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+figure(1)
+plot3(mpos(1,:),mpos(2,:),mpos(3,:),'bo')
+hold on
+for n=1:length(wavefiles)
+    %PLOT SOURCE POSITIONS ON FIGURE
+    plot3(speakers.wavefiles{n}(1),speakers.wavefiles{n}(2),speakers.wavefiles{n}(3),...
+        'g>','MarkerSize',14);
+end
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHAdd labels to figureREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+hold off
+title({'Mic position denote by blue Os, and source of interest denoted by red Xs', ...
+        'and interfering source denoted by green triangles'})
+xlabel('X-Dimension in meters')
+ylabel('Y-Dimension in meters')
+zlabel('Z-Dimension in meters')
+grid on
+
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-Find closest mic to speaker of interest for comparisonREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+micDist = sum((mpos - speakers.wavefiles{speaker_of_interest_index} * ones(1,num_mics)).^2);
+[dum, cindex] = min(micDist);
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHRead source .wav fileREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+[yin, fs] = audioread(fName);
+yclose = yin(:,cindex(1));
+
+
+%window editing
+hwin = hann(nWin+1);  %  Tappering window for overlap and add
+hwin = hwin(1:end-1);  % Make adjustment so even windows align
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-DSBREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+x = zeros(nWin, num_mics);  % Current window of audio data
+yDsb = zeros(Num_samples, 1); % delay-sum beamformer output
+hwt = waitbar(0,'Beamformer: DSB');
+for n=1:nInc:Num_samples-nWin  % iterate over 20ms windows
+    % For each 20ms window save the previous and open the new
+    xPrev = x;  x = yin(n:n+nWin-1,:);
+    dum = dsb(x, xPrev, fs, speakers.wavefiles{speaker_of_interest_index},...
+        mpos, c,iw); % run
+    yDsb(n:n+nWin-1)  = yDsb(n:n+nWin-1) + dum.*hwin;
+    waitbar(n/Num_samples,hwt);
+end
+close(hwt)
+
+
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHMaskingREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+hwt = waitbar(0,'Beamformer: DSB with TF Masking');
+yDsbMask = [];
+for p=1:length(wavefiles)
+    x = zeros(nWin, num_mics);  % Current window of audio data
+    yt = zeros(Num_samples, 1); % delay-sum beamformer output
+    for n=1:nInc:Num_samples-nWin  % iterate over 20ms windows
+        % For each 20ms window save the previous and open the new
+        xPrev = x;  x = yin(n:n+nWin-1,:);
+        %DSB to one source per loop (the for loop with variable p)
+        dum = dsb(x, xPrev, fs, speakers.wavefiles{p}, mpos, c); % run
+        yt(n:n+nWin-1) = yt(n:n+nWin-1) + dum.*hwin;
+        waitbar((n-1)/4 + n/(4*Num_samples),hwt);
+    end
+    %concactenate
+    yDsbMask = [yDsbMask,yt];
+end
+yMask = tfmask(yDsbMask,speaker_of_interest_index,tWin,4,fs);
+close(hwt);
+
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHTraditional GJBFREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+
+% Notice that several parameters must be saved and recycled between
+% iterations to ensure that the final conditions from one audio
+% window become the initial conditions for the next.
+mu = .1;  order = 20;  beta = .9;  % LMS filter parameters
+p = 0;  q = 0;  % don't need these now, set to zero
+phi = [];  psi = [];  % CCAF bounds not needed
+K = [];  % MC NLMS norm threshold not needed
+bmWForce = [];  mcWForce = [];  % not locking taps right now
+snrThresh = [];  snrRate = [];  % no SNR thresholding right now
+snrInit = [];
+x = zeros(nInc, num_mics);  % Current window of audio data
+b = zeros(nInc, 1);  % embedded DSB output
+z = zeros(nInc, num_mics-1);  % BM output
+bmWall = [];  % BM LMS taps (not needed here still but need [])
+mcWall = [];  % MC LMS taps (initialize to [])
+yGjbf = zeros(Num_samples, 1); % traditional GJBF output
+
+hwt = waitbar(0,'Beamformer: GJBF');
+for n=1:nInc:Num_samples-nWin  % iterate over 20ms windows     
+    xPrev = x;  x = yin(n:n+nWin-1,:); % load audio
+    % Call beamforming function for this window
+    [dum, bmWall, mcWall, snrAll, b, z] = ...
+        gjbf(x, fs, speakers.wavefiles{speaker_of_interest_index}, ...
+             mpos, c, p, q, mu, order, beta, ...
+             phi, psi, K, xPrev, b, z, bmWall(:,:,end), ...
+             mcWall(:,:,end), snrThresh, snrRate, snrInit, ...
+             bmWForce, mcWForce);
+         yGjbf(n:n+nWin-1) = yGjbf(n:n+nWin-1) + dum.*hwin;
+         waitbar(n/Num_samples,hwt);
+end
+close(hwt)
+
+
+
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-Robust GJBF (Hoshuyama)REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% Need to recycle initial/final values between windows here, too
+p = 5;  q =10; % guess number of signal propagation samples across array
+[phi, psi] = ccafbounds(mpos, fs, c, p, order);  % calculate CCAF bounds
+K = .01; % MC LMS norm constaint
+snrThresh = -10;  snrRate = 2;  % -10dB threshold, check twice/window
+snrAll = -Inf*ones(1,num_mics);  % saved, recycled SNR values
+x = zeros(nInc, num_mics);  % Current window of audio data
+b = zeros(nInc, 1);  % embedded DSB output
+z = zeros(nInc, num_mics);  % BM output
+bmWall = [];  % BM LMS taps (initialize to [])
+mcWall = [];  % MC LMS taps (initialize to [])
+yRobustGsc = zeros(Num_samples, 1); % robust GSC output
+hwt = waitbar(0,'Beamformer: Robust GSC');
+for n=1:nInc:Num_samples-nWin  % iterate over 20ms windows
+    xPrev = x;  x = yin(n:n+nWin-1,:); % load audio
+    % Call beamforming function for this window
+    [dum, bmWall, mcWall, snrAll, b, z] = ...
+	gjbf(x, fs, speakers.wavefiles{speaker_of_interest_index}, ...
+         mpos, c, p, q, mu, order, beta, phi, ...
+	     psi, K, xPrev, b, z, bmWall(:,:,end), ...
+	     mcWall(:,:,end), snrThresh, snrRate, snrAll(end, :), ...
+	     bmWForce, mcWForce);
+     yRobustGsc(n:n+nWin-1) = yRobustGsc(n:n+nWin-1) + dum.*hwin;
+     waitbar(n/Num_samples,hwt);
+end
+close(hwt)
+
+
+
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-PLAYBACKREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+% Uncomment next 5 lines to save results for later listening
+audiowrite('yClose.wav', yclose/(sqrt(2)*max(abs(yclose))), fs);
+audiowrite('yDsb.wav', yDsb(1)/(sqrt(2)*max(abs(yDsb))), fs);
+audiowrite('yGjbf.wav', yGjbf/(sqrt(2)*max(abs(yGjbf))), fs);
+audiowrite('yRobustGsc.wav', yRobustGsc/(sqrt(2)*max(abs(yRobustGsc))), fs);
+audiowrite('yMask.wav', yMask/(sqrt(2)*max(abs(yMask))), fs);
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHPlay mic closest to speaker of interestREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+hwt = waitbar(.1,{'Playing closest mic recording to ', speaker_of_interest});
+sound(yclose/(std(yclose)*10),fs)
+pause(length(yclose)/fs)
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-Play DSB with inverse weighting resultREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+if iw == 1
+   waitbar(.3,hwt,{'Playing DSB (inverse distance weighting) result for ', speaker_of_interest});
+   soundsc(yDsb,fs)
+else
+   waitbar(.3,hwt,{'Playing DSB result for ', speaker_of_interest});soundsc(yDsb,fs)
+end    
+sound(yDsb/(std(yDsb)*10),fs)
+pause(length(yDsb)/fs+.5)
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-Play Griffiths Jim resultREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH
+waitbar(.5,hwt,{'Playing GJBF result for ',speaker_of_interest});
+sound(yGjbf/(std(yGjbf)*10),fs)
+pause(length(yGjbf)/fs+.5)
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-Play Robust GSC resultREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+waitbar(.7,hwt,{'Playing Robust GSC result for ', speaker_of_interest});
+sound(yRobustGsc/(std(yRobustGsc)*10),fs)
+pause(length(yRobustGsc)/fs+.5)
+
+%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHPlay Masking ResultREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH-
+waitbar(.9,hwt,{'Playing TF Maksing result for ', speaker_of_interest});
+sound(yMask/(std(yMask)*10),fs)
+pause(length(yMask)/fs+.5)
+close(hwt)
+
+%clear workspace
+clearvars
+##### SOURCE END #####
+--></body></html>

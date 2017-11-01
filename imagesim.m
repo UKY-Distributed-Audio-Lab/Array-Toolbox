@@ -171,7 +171,9 @@ for p=1:8  % First order permutations
                 dst = norm(Rp(:,p)+Rr);  %  Compute total distance traveled for image source
                 stst = bxyz/(fac*(dst+1));   %  Combined reflection and diffraction losses
                 %  Test to see if dB level of scale factor is above limit
-                if stst > thr   %  If so, save delay and scale factor to output array
+                %  or direct path.
+                %  If so, save delay and scale factor to output array, 
+                if (stst > thr) || (l==0 && m==0 && n==0)   
                     cnt = cnt+1;
                     scals(cnt) = stst;
                     dlays(cnt) = dst/c;
