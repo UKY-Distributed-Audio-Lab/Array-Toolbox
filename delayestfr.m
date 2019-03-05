@@ -80,7 +80,8 @@ elseif pro.detrendord == 0
     sig2 = detrend(sig2,'constant');
 end
 
-%  Compute FFTs
+
+%plot(fax,phs);%  Compute FFTs
 len1 = length(sig1);
 len2 = length(sig2);
 len = max([len1, len2]);  %  use longer signal length for zero pad
@@ -91,8 +92,7 @@ fsig2 = fft(sig2,nfft);  %  FT of signal 2
 pd = conj(fsig1).*(fsig2);
 %  Compute frequency axis
 fax = fs*[0:nfft-1]/nfft;
-phs = phase(pd);
-%plot(fax,phs);
+phs = unwrap(angle(pd));
 %pause
 gpd = gradient(phs,fs/nfft);
 wrng = find(fax >= pro.flow & fax <= pro.fhigh);
